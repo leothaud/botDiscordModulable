@@ -1,7 +1,7 @@
 import discord, asyncio, ast, datetime, sqlite3
 import messageCount
 from botAPI import *
-
+from gpiozero import CPUTemperature
 
 currentMessage = None
 startTime = datetime.datetime.now()
@@ -13,29 +13,15 @@ def deGestionnaire(msg, idGestion):
     return False
 
 
-
-
-def nameCommand(msg):
-    """
-        récupère le nom de la commande
-    """
+def argsCommand(msg): #TODO ajouter ``
     i = 0
-    while ( i < len(msg) and msg[i]!= " "):
-        i += 1
-    return msg[1:i]
-
-def argsCommand(msg):
-    """
-        récupère les arguments d'une commande classique.
-    """
-    i = 0
-    while ( i < len(msg) and msg[i]!= " "):
+    while i < len(msg) and msg[i] != " ":
         i += 1
     args = []
     i += 1
     k = i
     while i < len(msg):
-        while (i < len(msg) and msg[i] != " "):
+        while i < len(msg) and msg[i] != " ":
             i += 1
         args.append(msg[k:i])
         i += 1
@@ -50,7 +36,7 @@ def nameArgs(argsString):
     if argsString == "":
         return []
     while i < len(argsString):
-        while (i < len(argsString) and argsString[i] != ","):
+        while i < len(argsString) and argsString[i] != ',':
             i += 1
         names.append(argsString[k:i])
         i += 1
@@ -69,7 +55,7 @@ async def reactionMessage(msg, dbName):
             await async_exec(react[2])
     
 
-async def bind(msg, dbName):
+async def bind(msg, dbName): #TODO meilleures erreurs
     txt = msg.content[1:]
     i = 0
     while i < len(txt) and txt[i] != " ":
@@ -96,6 +82,7 @@ async def bind(msg, dbName):
                 await msg.channel.send("ERREUR2")
     else:
         await msg.channel.send("ERREUR3")
+
 
 
 async def bindReaction(msg, dbName):
@@ -127,143 +114,6 @@ async def bindReaction(msg, dbName):
     else:
         await msg.channel.send("Erreur binding")
 
-async def treat(msg, dbName, idGestion):
-    """
-        traite le message reçu
-    """
-    global startTime
-    if msg.content[1:] == "quit":
-        await client.change_presence(status=discord.Status.offline)
-        await asyncio.sleep(1)
-        await client.close()
-    elif msg.content[1:] == "uptime":
-        await msg.channel.send(str(datetime.datetime.now() - startTime))
-    elif msg.content[1:] == "count":
-        nbr = messageCount.howMuch(msg.author.id)
-        await msg.channel.send("Tu as envoyé "+str(nbr[0])+" messages.")
-    elif msg.content[1:] == "listCommand":
-        conn = sqlite3.connect(dbName)
-        c = conn.cursor()
-        c.execute("SELECT nom FROM functions;")
-        liste = c.fetchall()
-        text = ""
-        for elt in liste:
-            text += elt[0]+"\n"
-        await send(text)
-        conn.close()
-    else:
-        commandName = nameCommand(msg.content)
-        if commandName == "infoCommand":
-            i = 0
-            while (i < len(msg.content) and msg.content[i] != " "):
-                i += 1
-            if i != len(msg.content):
-                i += 1
-                n0 = i
-                while (i < len(msg.content) and msg.content[i] != " "):
-                    i += 1
-                functionName = msg.content[n0:i]
-                conn = sqlite3.connect(dbName)
-                c = conn.cursor()
-                c.execute("SELECT * FROM functions WHERE nom='"+functionName+"';")
-                res = c.fetchone()
-                if res == None:
-                    await send("Commande "+functionName+" introuvable.")
-                else:
-                    await send(res[1]+" "+res[2]+" : ```"+res[3]+"```")
-            else:
-                await send("Récupération informations impossibles")
-        elif commandName == "delCommand":
-            i = 0
-            while (i < len(msg.content) and msg.content[i] != " "):
-                i += 1
-            if i != len(msg.content):
-                i += 1
-                n0 = i
-                while (i < len(msg.content) and msg.content[i] != " "):
-                    i += 1
-                functionName = msg.content[n0:i]
-                conn = sqlite3.connect(dbName)
-                c = conn.cursor()
-                c.execute("DELETE FROM functions WHERE nom='"+functionName+"';")
-                conn.commit()
-                conn.close()
-            else:
-                await send("Récupération informations impossibles")
-        elif commandName == "addCommand":
-            if deGestionnaire(msg, idGestion):
-                i = 0
-                while (i < len(msg.content) and msg.content[i] != " "):
-                    i += 1
-                if i != len(msg.content):
-                    i += 1
-                    n0 = i
-                    while (i < len(msg.content) and msg.content[i] != " "):
-                        i += 1
-                    if i != len(msg.content):
-                        i += 1
-                        n1 = i
-                        while (i < len(msg.content) and msg.content[i] != " "):
-                            i += 1
-                        if i != len(msg.content):
-                            i += 1
-                            n2 = i
-                            functionName = msg.content[n0:n1-1]
-                            functionArgs = msg.content[n1:n2-1]
-                            function = msg.content[n2+3:-3]
-                            conn = sqlite3.connect(dbName)
-                            c = conn.cursor()
-                            c.execute("SELECT COUNT(*) FROM functions WHERE nom=\'"+functionName+"\';")
-                            res = c.fetchone()
-                            if res[0] == 0:
-                                c.execute("INSERT INTO functions (nom, args, command) VALUES (\'"+functionName+"\',\'"+functionArgs+"\',\'"+function+"\');")
-                                conn.commit()
-                                await send("Fonction "+functionName+" ajoutée avec succès.")
-                            else:
-                                await send("Fonction "+functionName+" déjà existante.")
-                            conn.close()
-                        else:
-                            await msg.channel.send("Cette commande prend comme arguments le nom de la fonction, la liste des arguments puis la fonction entre `.")
-                    else:
-                        await msg.channel.send("Cette commande prend comme arguments le nom de la fonction, la liste des arguments puis la fonction entre `.")
-                else:
-                    await msg.channel.send("Cette commande prend comme arguments le nom de la fonction, la liste des arguments puis la fonction entre `.")
-            else:
-                await msg.channel.send("Tu n'as pas le droit.")
-        elif commandName == "bind":
-            if deGestionnaire(msg, idGestion):
-                await bind(msg, dbName)
-            else:
-                msg.channel.send("Tu n'as pas le droit.")
-        elif commandName == "bindReac":
-            if deGestionnaire(msg, idGestion):
-                await bindReaction(msg, dbName)
-            else:
-                msg.channel.send("Tu n'as pas le droit.")
-        else:
-            args = argsCommand(msg.content)
-            conn = sqlite3.connect(dbName)
-            c = conn.cursor()
-            c.execute("SELECT nom,args,command FROM functions")
-            commands = c.fetchall()
-            command = None
-            for row in commands:
-                if commandName == row[0]:
-                    command = row
-            if command:
-                argsName = nameArgs(command[1])
-                if len(argsName) != len(args):
-                    await msg.channel.send("Cette commande prend exactement " + str(len(argsName)) + " argument" + ("" if len(argsName)<2 else "s") + ".")
-                else:
-                    Parameter = dict(globals())
-                    for i in range(len(argsName)):
-                        Parameter[argsName[i]] = eval(args[i])
-                    await async_exec(command[2],Parameter)
-            else:
-                await msg.channel.send("Commande inconnue.")
-            conn.close()
-    
-
 async def reactionReaction(reaction, dbName):
     print(reaction)
     conn = sqlite3.connect(dbName)
@@ -275,3 +125,90 @@ async def reactionReaction(reaction, dbName):
         if react[1] == str(reaction):
             await async_exec(react[2])
     
+async def treat(msg, dbName, idGestion):
+    global startTime
+    msgText = msg.content[1:]
+    if deGestionnaire(msg, idGestion):
+        # commandes nécéssitant des droits
+        if msgText == "quit":
+            await client.change_presence(status=discord.Status.offline)
+            await asyncio.sleep(1)
+            await client.close()
+            return
+        elif msgText == "rbpiInfo":
+            await send(CPUTemperature().temperature)
+            return
+        elif msgText.startswith("delCommand "):
+            conn = sqlite3.connect(dbName)
+            c = conn.cursor()
+            c.execute("DELETE FROM functions WHERE nom='"+msgText[11:]+"';")
+            conn.commit()
+            conn.close()
+            return
+        elif msgText.startswith("addCommand "):
+            pass
+        elif msgText.startswith("bind "):
+            await bind(msg, dbName)
+            return
+        elif msgText.startswith("bindReac "):
+            await bindReaction(msg, dbName)
+            return
+    #autres commandes
+    if msgText == "uptime":
+        await msg.channel.send(str(datetime.datetime.now() - startTime))
+    elif msgText == "count":
+        nbr = messageCount.howMuch(msg.author.id)
+        await msg.channel.send("Tu as envoyé "+str(nbr[0])+" messages.")
+    elif msgText == "listCommand":
+        conn = sqlite3.connect(dbName)
+        c = conn.cursor()
+        c.execute("SELECT nom FROM functions;")
+        liste = c.fetchall()
+        text = ""
+        for elt in liste:
+            text += elt[0]+"\n"
+        await send(text)
+        conn.close()
+    elif msgText.startswith("infoCommand "):
+        i = 0
+        while (i < len(msg.content) and msg.content[i] != " "):
+            i += 1
+        if i != len(msg.content):
+            i += 1
+            n0 = i
+            while (i < len(msg.content) and msg.content[i] != " "):
+                i += 1
+            functionName = msg.content[n0:i]
+            conn = sqlite3.connect(dbName)
+            c = conn.cursor()
+            c.execute("SELECT * FROM functions WHERE nom='"+functionName+"';")
+            res = c.fetchone()
+            if res == None:
+                await send("Commande "+functionName+" introuvable.")
+            else:
+                await send(res[1]+" "+res[2]+" : ```"+res[3]+"```")
+        else:
+            await send("Récupération informations impossibles")
+    else:
+        commandName = nameCommand(msg.content)
+        args = argsCommand(msg.content)
+        conn = sqlite3.connect(dbName)
+        c = conn.cursor()
+        c.execute("SELECT nom,args,command FROM functions")
+        commands = c.fetchall()
+        command = None
+        for row in commands:
+            if commandName == row[0]:
+                command = row
+        if command:
+            argsName = nameArgs(command[1])
+            if len(argsName) != len(args):
+                await msg.channel.send("Cette commande prend exactement " + str(len(argsName)) + " argument" + ("" if len(argsName)<2 else "s") + ".")
+            else:
+                Parameter = dict(globals())
+                for i in range(len(argsName)):
+                    Parameter[argsName[i]] = eval(args[i])
+                await async_exec(command[2],Parameter)
+        else:
+            await msg.channel.send("Commande inconnue.")
+        conn.close()

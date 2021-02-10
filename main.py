@@ -47,6 +47,8 @@ async def on_ready():
             c.execute("INSERT INTO messages (idMembre, nombreMessage) VALUES ("+str(mem.id)+",0);")
     conn.commit()
     conn.close()
+    actv = discord.CustomActivity("Révolution !")
+    await client.change_presence(status=discord.Status.idle, activity=actv)
     print('-------------------')
 
 @client.event
